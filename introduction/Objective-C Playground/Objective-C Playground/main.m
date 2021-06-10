@@ -69,7 +69,7 @@ int main(int argc, const char * argv[]) {
 //        NSLog(@"%d", k);
         
         NSString *str = @"Reject common sense to make the impossible possible!";
-        NSLog(str);
+        NSLog(@"%@", str);
     }
     return 0;
 }
