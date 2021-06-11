@@ -440,3 +440,265 @@ NSDictionary<NSString *, NSNumber *> *villains = @{ @"Daleks": @100, @"Cybermen"
 So: generics exist in Objective-C, but 
 1. they aren’t anywhere like as beneficial as they are in Swift, and 
 2. they are so new that most projects don’t use them.
+
+## NSValue
+
+Objective-C’s collection types are designed to store objects, which means arrays of integers are only possible if you wrap the integers inside **NSNumber** instances.
+
+**CGRect**, **CGSize**, **CGPoint**, among other things are all structs in Objective-C and so they can’t be in collections.
+
+Apple’s solution to this is to create a generic object wrapper that handles a variety of different types. It’s called **NSValue**.
+
+~~~
+let keyboardScreenEndFrame = (userInfo[UIKeyboardFrameEndUserInfoKey] as! NSValue).CGRectValue()
+~~~
+
+The method we wrote received a **userInfo** dictionary when the keyboard was shown or hidden, and inside that was a **NSValue** for the frame of the keyboard, and inside that was a **CGRect** containing the actual values.
+
+The classes that NSValue can store depend on the project you’re working with. If you’re still working with the macOS command-line app template, you’ll find things like this:
+
+~~~
+NSValue *rect = [NSValue valueWithRect:NSMakeRect(0, 0, 10, 10)];
+NSValue *point = [NSValue valueWithPoint:NSMakePoint(0, 0)];
+NSValue *size = [NSValue valueWithSize:NSMakeSize(10, 10)];
+~~~
+
+Whereas in iOS projects you’ll be able to work with different types:
+
+~~~
+NSValue *rect = [NSValue valueWithCGRect:CGRectMake(0, 0, 10, 10)];
+NSValue *point = [NSValue valueWithCGPoint:CGPointMake(0, 0)];
+NSValue *size = [NSValue valueWithCGSize:CGSizeMake(10, 10)];
+NSValue *transform = [NSValue valueWithCGAffineTransform:CGAffineTransformIdentity];
+NSValue *insets = [NSValue valueWithUIEdgeInsets:UIEdgeInsetsMake(10, 10, 10, 10)];
+~~~
+
+## NSData
+
+**NSData** is one of the few Objective-C classes that has for all intents and purposes been imported wholesale into Swift: the Swift version is called **Data**, but it’s effectively identical to the **NSData** class that Objective-C provides, at least in terms of its functionality. 
+
+## NSObject
+
+Objective-C has a universal base class called **NSObject**, which is where almost every other class inherits from.
+
+For example, if you create a **UIViewController**, it inherits from **UIResponder**, which in turn inherits from **NSObject**. 
+
+Swift classes don’t have this concept because it isn’t needed any more, but occasionally you might have needed to make a Swift class inherit from **NSObject** to use things like **NSCoding**.
+
+Behind the scenes, **NSObject** is actually implemented as both a class and a protocol, but it provides some really core functionality that is used extensively in Objective-C. 
+
+You’ve already seen **copy** and **mutableCopy**, both of which come from **NSObject**, but here are some other useful methods it provides:
+
+* **isKindOfClass** returns true if an object is a specific type, or a subclass of that type. Use [**SomeClass class**] for the parameter.
+* **conformsToProtocol** returns true if an object declares itself as conforming to a protocol. 
+* **respondsToSelector** checks whether an object is able to run a method.
+* **performSelector** runs a method on an object.
+
+~~~
+NSMutableArray *people = [@[@"Taylor Swift", @"Adele Adkins"] mutableCopy];
+if ([people isKindOfClass:[NSArray class]]) {
+   if ([people respondsToSelector:@selector(removeAllObjects)] ) {
+      [people performSelector:@selector(removeAllObjects)];
+   } 
+}
+~~~
+
+Even though I’ve created the array as an **NSMutableArray**, behind the scenes that is implemented as a subclass of **NSArray**, so that code will create an array then remove all its objects.
+
+You might be wondering why **performSelector** even exists: surely we could have written [**people removeAllobjects**];? 
+
+Well, the two pieces of code are identical in their result, but Objective-C allows you to create selectors from strings and effectively choose what code should be called at runtime. This isn’t used much any more because Xcode is unable to generate meaningful ARC calls. 
+
+However, there are a variety of **performSelector** counterparts that are more useful, such as **performSelector:withObject:afterDelay:**. These work just the same as in Swift.
+
+## id and instancetype
+
+At the root of Objective-C’s lack of safety is a data type called **id**, which means “any Objective-C object.”
+
+More specifically, it means a pointer to any Objective-C object, which means you don’t need to add a * to it.
+
+This might seem like a perfectly normal data type, and indeed **Any** from Swift might seem like a good comparison.
+
+However, there is a significant difference: because Objective-C lived without generics for so long, **id** was the data type used for items in arrays and dictionaries, which in turn meant that the Objective-C compiler is written not to warn you when you convert between **id** and any other data type.
+
+Back in the old days, this was helpful behavior because you didn’t constantly need to typecast things coming out of arrays, but such behavior is unthinkable in Swift.
+
+Rather than **id** meaning any object, it in fact means every object – you can call array methods on it, string methods, number methods, and more, and the compiler won’t care. Sure, it will crash at runtime if those methods don’t actually exist, but as far as the compiler is concerned it’s all good.
+
+~~~
+NSArray *foo = [NSArray new];
+id bar = foo;
+NSArray *baz = bar;
+~~~
+
+That creates **foo** as an array, places it into the **id** type **bar**, effectively losing its type information, then puts the untyped **bar** into a new **NSArray** pointer called **baz**. That code compiles cleanly – no warnings or errors – which is effectively the compiler giving me the dubious choice to opt out of type safety.
+
+There’s one further implication to all this, which used to be a problem but has become less so: in Objective-C from around 2012 and earlier, **id** was the data type returned by many initializers.
+
+For example, using [**NSSet setWithObjects:@"foo", nil**]; used to return id rather than an **NSSet**, which meant suddenly type erasure was all over your code.
+
+As of 2012, coders were able to replace id in their initializers with **instancetype**, which is a special keyword that means “an instance of this class will be returned.”
+
+This information can then be used by the compiler to ensure that new objects are used correctly. Apple took a couple of years to update its own APIs to use **instancetype** fully, but that has been done now. I doubt many existing codebases were upgraded, but you might find that old classes use **id** and newer ones **instancetype**.
+
+## NSError
+
+NSError is used to report errors back from function calls that fail.
+
+~~~
+NSError *error;
+NSString *contents = [NSString stringWithContentsOfFile:@"hello.txt" usedEncoding:nil error:&error];
+~~~
+
+That starts relatively simply: it creates a new **NSError** variable called error. However, it gets created to **nil** because this is where we want an error to be placed if something went wrong in the following call. 
+
+Then, in the code, I pass **&error** to the error parameter, which is new. If an error is produced by the method call, an **NSError** object is created and placed inside the **error** variable.
+
+This syntax is necessary because we’re actually dealing with pointer pointers – i.e. a pointer to a pointer.
+
+If we had created an **NSError** and passed it into the method where it was modified we might have only needed a regular pointer, but in cases where no error is produced it’s wasteful to create an **NSError** object when it isn’t needed.
+
+Instead, we pass a pointer to a pointer: rather than modifying an object being passed, the method can modify the pointer itself so that it points to a new object.
+
+Helpfully for all of us, this syntax occurs fairly infrequently in Objective-C, and nearly always when using **NSError**.
+
+In earlier Swift versions, **NSError** was exposed directly to Swift developers. However, since Swift 2.0 any method that accepts an **NSError**** as its last parameter automatically gets converted to use **try/catch** instead, so you’re unlikely to see it much any more. 
+
+On the few occasions when you do see it, expect it to be bridged to Swift’s **Error** type.
+
+## Blocks
+
+Blocks are the Objective-C equivalent of Swift’s closures.
+
+~~~
+// Swift
+let printUniversalGreeting = {
+   print("Bah-weep-graaaaagnah wheep nini bong")
+}
+printUniversalGreeting()
+
+// Objective-C
+void (^printUniversalGreeting)(void) = ^{
+   NSLog(@"Bah-weep-graaaaagnah wheep nini bong");
+};
+printUniversalGreeting();
+~~~
+
+* **void**: The block returns nothing.
+* **(^printUniversalGreeting)**: Put the block into a variable called “printUniversalGreeting”. 
+* **(void)**: The block accepts no parameters.
+* **= ^{ ... }**: The contents of the block
+
+Using that knowledge, we could make a block that returns a string just by changing the first **void**.
+
+~~~
+NSString* (^printUniversalGreeting)(void) = ^{
+  return @"Bah-weep-graaaaagnah wheep nini bong";
+};
+~~~
+
+Where things get complicated when you want to call blocks that have parameters.
+
+This is because the data type needs to be declared as receiving a string, and the block itself needs to be declared as receiving a string.
+
+~~~
+NSString* (^printUniversalGreeting)(NSString *) = ...
+~~~
+
+All that does is say that the variable will hold a block that accepts one parameter; the parameter doesn’t need a name just yet, we’re just saying that it must exist.
+
+To write a block that accepts a parameter, you need to put the parameter list between the **^** and **{**, like this:
+
+~~~
+^(NSString *name) {
+~~~
+
+So, the whole code looks is this:
+
+~~~
+NSString* (^printUniversalGreeting)(NSString *) = ^(NSString *name) {
+   return [NSString stringWithFormat:@"Live long and prosper, %@.", name];
+};
+~~~
+
+* **NSString***: The block will return a string.
+* **(^printUniversalGreeting)**: It’s called “printUniversalGreeting”.
+* **(NSString *)**: It must accept a string parameter.
+* **= ^**: Assign the following block to the variable.
+* **(NSString *name)**: This block accepts a string parameter.
+
+You might find it useful to use **typedef** to create an alias for your block type.
+
+~~~
+typedef NSString* (^MyBlock)(NSString*);
+~~~
+
+That means, “create the data type **MyBlock** as an alias for a block that accepts a string and returns a string.”
+
+With that in place, you can now write this:
+
+~~~
+MyBlock printUniversalGreeting = ^(NSString *name) {
+   return [NSString stringWithFormat:@"Live long and prosper, %@.", name];
+};
+~~~
+
+### Capturing Values
+
+Objective-C blocks capture values similarly to Swift closures.
+
+~~~
+NSString *name = @"Zaphod";
+NSString* (^printUniversalGreeting)(void) = ^{
+   return [NSString stringWithFormat:@"Don't panic, %@!", name]; 
+};
+NSLog(@"%@", printUniversalGreeting());
+~~~
+
+If you want to modify a value inside your block, you should use the **__block** qualifier, like this:
+
+~~~
+NSInteger __block number = 0;
+~~~
+
+When you come into contact with wild Objective-C, you might find that same line of code written like this:
+
+~~~
+__block NSInteger number = 0;
+~~~
+
+However, people who write that, are wrong, and their wrongness shall haunt them to their grave. It’s semantically identical, but one is technically correct and the other will be first against the wall when the revolution comes.
+
+Just kidding: Apple’s guide indeed says **NSInteger __block** is technically correct, but in practice you’ll see **__block NSInteger** far more often. You have to admit, putting the **__block** at the front makes it stand out significantly more, which is important given its behavior.
+
+Regardless of which syntax you choose, the result is that you can modify a variable inside the block, like this:
+
+~~~
+NSInteger __block number = 0;
+NSString* (^printMeaningOfLife)(void) = ^{
+   number = 42;
+   return [NSString stringWithFormat:@"How many roads must a man walk down? %ld.", number];
+};
+NSLog(@"%@", printMeaningOfLife());
+~~~
+
+### Strong Reference Cycles
+
+Blocks can sometimes cause memory problems, just like closures in Swift.
+
+The problem is identical: if a block is owned by object A, and has a strong reference to object A, then you have a strong reference cycle.
+
+That is, object A can’t be freed because its block exists, and its block can’t be freed because object A exists.
+
+Fortunately, the solution is identical too, at least in theory: make the block have a weak reference to its owner.
+
+In practice, Swift has the edge because they added capture lists to make strong reference cycles less likely – that’s the name for those things in brackets you write in closures, e.g. [**unowned self**].
+
+Objective-C doesn’t have these, and instead requires you to use a **__weak** qualifier, like this:
+
+~~~
+MyViewController * __weak weakSelf = self;
+NSString* (^myBlock)(void) = ^{
+   return [weakSelf runSomeMethod];
+};
+~~~
