@@ -14,13 +14,15 @@ NS_ASSUME_NONNULL_BEGIN
 //    @public
 //    NSString *name;
 //}
-@property NSString *name;
-@property NSString *nameToo;
+@property (null_resettable) NSString *name;
+@property (readonly) NSString *nameToo;
 
+- (nonnull instancetype)initWithName:(nonnull NSString*)name;
 - (void)printGreeting;
-- (void)printGreeting:(NSString*)greeting;
-- (void)printGreetingToo:(NSString*)greeting;
-- (void)printGreetingTo:(NSString*)name atTimeOfDay:(NSString*)time;
+- (void)printGreeting:(nonnull NSString*)greeting;
+- (void)printGreetingToo:(nonnull NSString*)greeting;
+- (void)printGreetingTo:(nonnull NSString*)name atTimeOfDay:(nonnull NSString*)time;
+- (nonnull NSString*)fetchGreetingForTime:(nonnull NSString*)time;
 
 @end
 

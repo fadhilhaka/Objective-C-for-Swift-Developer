@@ -7,18 +7,34 @@
 
 #import "Person.h"
 
+@interface Person ()
+@property (readwrite) NSString *nameToo;
+@end
+
 @implementation Person
 
 @synthesize name = _name;
 
 - (NSString*)name {
-   NSLog(@"Reading name!");
-   return _name;
+    NSLog(@"Reading name!");
+    if (_name == nil) {
+        return @"Anonymous";
+    } else {
+        return _name;
+    }
 }
 
 - (void)setName:(NSString *)newName {
-   NSLog(@"Writing name!");
-   _name = newName;
+    NSLog(@"Writing name!");
+    _name = newName;
+}
+
+- (instancetype)initWithName:(NSString*)name {
+    if (self == [super init]) {
+        NSLog(@"Init name!");
+        self.name = name;
+    }
+    return self;
 }
 
 - (void)printGreeting {
@@ -53,6 +69,14 @@
             @"French": [NSString stringWithFormat:@"Bonsoir, %@", name]
         };
     }
+}
+
+- (NSString*)fetchGreetingForTime:(NSString*)time {
+    //    Test apply nil to property
+        NSString *str = nil;
+        self.name = str;
+    
+    return [NSString stringWithFormat:@"Good %@, %@!", time, self.name];
 }
 
 @end

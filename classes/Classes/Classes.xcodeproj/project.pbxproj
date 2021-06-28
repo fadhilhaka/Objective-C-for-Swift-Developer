@@ -7,6 +7,7 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		D226B96E26844001009FD33B /* NSString+Trimming.m in Sources */ = {isa = PBXBuildFile; fileRef = D226B96D26844001009FD33B /* NSString+Trimming.m */; };
 		D25A0F97267866CB00BE68D1 /* main.m in Sources */ = {isa = PBXBuildFile; fileRef = D25A0F96267866CB00BE68D1 /* main.m */; };
 		D25A0F9F2678671400BE68D1 /* Person.m in Sources */ = {isa = PBXBuildFile; fileRef = D25A0F9E2678671400BE68D1 /* Person.m */; };
 /* End PBXBuildFile section */
@@ -24,6 +25,8 @@
 /* End PBXCopyFilesBuildPhase section */
 
 /* Begin PBXFileReference section */
+		D226B96C26844001009FD33B /* NSString+Trimming.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = "NSString+Trimming.h"; sourceTree = "<group>"; };
+		D226B96D26844001009FD33B /* NSString+Trimming.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = "NSString+Trimming.m"; sourceTree = "<group>"; };
 		D25A0F93267866CB00BE68D1 /* Classes */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = Classes; sourceTree = BUILT_PRODUCTS_DIR; };
 		D25A0F96267866CB00BE68D1 /* main.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = main.m; sourceTree = "<group>"; };
 		D25A0F9D2678671400BE68D1 /* Person.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = Person.h; sourceTree = "<group>"; };
@@ -41,9 +44,19 @@
 /* End PBXFrameworksBuildPhase section */
 
 /* Begin PBXGroup section */
+		D226B96F26844010009FD33B /* Categories */ = {
+			isa = PBXGroup;
+			children = (
+				D226B96C26844001009FD33B /* NSString+Trimming.h */,
+				D226B96D26844001009FD33B /* NSString+Trimming.m */,
+			);
+			path = Categories;
+			sourceTree = "<group>";
+		};
 		D25A0F8A267866CB00BE68D1 = {
 			isa = PBXGroup;
 			children = (
+				D226B96F26844010009FD33B /* Categories */,
 				D25A0F95267866CB00BE68D1 /* Classes */,
 				D25A0F94267866CB00BE68D1 /* Products */,
 			);
@@ -124,6 +137,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				D25A0F9F2678671400BE68D1 /* Person.m in Sources */,
+				D226B96E26844001009FD33B /* NSString+Trimming.m in Sources */,
 				D25A0F97267866CB00BE68D1 /* main.m in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
@@ -248,6 +262,7 @@
 				CODE_SIGN_STYLE = Automatic;
 				DEVELOPMENT_TEAM = Z247Q743VR;
 				ENABLE_HARDENED_RUNTIME = YES;
+				GCC_TREAT_WARNINGS_AS_ERRORS = YES;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 			};
 			name = Debug;
@@ -258,6 +273,7 @@
 				CODE_SIGN_STYLE = Automatic;
 				DEVELOPMENT_TEAM = Z247Q743VR;
 				ENABLE_HARDENED_RUNTIME = YES;
+				GCC_TREAT_WARNINGS_AS_ERRORS = YES;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 			};
 			name = Release;

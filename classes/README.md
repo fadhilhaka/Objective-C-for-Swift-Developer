@@ -479,3 +479,334 @@ Remember, only **Person.h** gets imported into **main.m**, so as far as the **ma
 Notice that the syntax for the second **@interface** is different: this is a class extension rather than a new class, so you write the name of the existing class followed by an empty pair of parentheses.
 
 You can only create class extensions if you have the source code to the class.
+
+**Property Attributes**
+
+Where properties start to get more complicated is when they have attributes attached to them. These are compiler instructions that affect the auto-generated accessor methods, and come in a variety of forms.
+
+We aren’t using any explicit attributes right now, but we are using implicit attributes: there are defaults being assigned to our **name** property that affect the way it works.
+
+There are **11 property attributes** in total, but they can be combined in a range ways so there are lots of possible combinations.
+
+* **strong**: This is the default for objects, and means “hold onto the memory.” This is the default for properties in Swift.
+* **weak**: This creates a weak reference for objects, just like weak properties in Swift. This is useful for breaking strong reference cycles.
+* **copy**: This takes a copy of whatever object is assigned to the property.
+* **assign**: This is the default for primitive types, and just assigns the value to the ivar.
+* **nonatomic**: An atomic property is one that will include extra code to ensure reading a
+value at the same time as it’s being written on another thread won’t produce garbage data. A non-atomic property is the opposite: that extra code isn’t added, so you need to make sure you don’t read and write the property simultaneously.
+* **retain**: An old form of strong. If you see this, it’s a sure signal you’re working with old code.
+* **readonly**: Do not generate a setter for this property.
+* **readwrite**: Generate a getter and setter for this property. This is the default for properties of all types.
+* **atomic**: See nonatomic above. Creating an atomic property has a small performance
+impact, but it keeps your code safe. This is the default for properties of all types.
+* **getter=**: This lets you change the name of a synthesized getter method.
+* **setter=**: This lets you change the name of synthesized setter method.
+
+Some of those come in groups, where you can specify only one item from each group.
+
+For example, you may only choose one from **strong**, **weak**, **copy**, **assign**, and **retain**; one from **readonly** and **readwrite**; and one from **atomic** and **nonatomic**.
+
+Some of the attributes bear more explanation. For example, why use **copy** rather than **strong**?
+
+If you create an **NSMutableString** and assign it to a strong property of two different objects, both properties point to the same mutable string. So, if one changes, they both change. This might be what you want in some instances – for example arrays – but if you want each object to have its own unique properties that can’t be changed by surprise, you should use **copy** instead.
+
+The **getter=** and **setter=** attributes allow you to change the names of the synthesized getter and setter accessor methods. This doesn’t affect you if you use dot syntax. Apple commonly uses these attributes to prefix boolean properties with “is”, for example **self.view.userInteractionEnabled** becomes [s**elf.view isUserInteractionEnabled**] because they specified a custom getter.
+
+In our code right now, the name property is defined like this:
+
+~~~
+@property NSString *name;
+~~~
+
+With no attributes attached, the defaults are used. If we wanted to be explicit, we could write the following instead:
+
+~~~
+@property (strong, atomic, readwrite) NSString *name;
+~~~
+
+I’ve already demonstrated that it’s possible for someone to send an NSMutableString in place of an NSString, so the above opens us to a possible problem if someone changed our string under our feet. So, when you want your data to be fixed you should use **copy** instead of strong, like this:
+
+~~~
+@property (copy, atomic, readwrite) NSString *name;
+
+// or simpler
+
+@property (copy) NSString *name;
+~~~
+
+**Atomic vs Non-atomic**
+
+Some people look at “atomic” and confuse it with “thread-safe” which is not true. 
+
+An atomic property ensures that if two different threads try to write a value at the same time, a third thread trying to read a value will get something sensible back. The write is atomic: it either doesn’t happen or it fully happens, it doesn’t “half happen.”
+
+Thread safety is something else entirely, and means that some code can be executed safely: if you move house from San Francisco to Paris you’ll change your street address, city, and country.
+
+If I try to read your address while you’re part-way through changing your address, I might get your street address as the Champs-Élysées (updated), but your city and country as San Francisco and United States (not updated).
+
+When you create IBOutlets, you’ll find that Xcode declares them as nonatomic properties because they ought never to be accessed from anywhere other than the main thread.
+
+**Modifying Properties in Place**
+
+If you want to move a button down 10 pixels, you might write something like this in Swift:
+
+~~~
+button.frame.origin.x += 10
+~~~
+
+Even though that’s only a semi-colon short of being syntactically valid Objective-C, it won’t compile.
+
+Now that you know how properties work, you might even be able to guess why: this line of code tries to read a property (“get the existing origin X”) and write it (“add 10 to it”) in a single line of code.
+
+This isn’t possible with Objective-C properties, so you will often see code like this:
+
+~~~
+CGRect frame = button.frame;
+button.frame = CGRectOffset(frame, 0, 50);
+~~~
+
+**Class Properties**
+
+Very modern Objective-C codebases may contain class properties. These are trivial in Swift, but in Objective-C take a little more work because they are never synthesized, which means you must create their ivar by hand and also create their methods.
+
+To demonstrate this here’s the name property recreated as a class property:
+
+~~~
+@interface MyClass: NSObject
+@property (class) NSString *name;
+@end
+
+@implementation MyClass
+static NSString *_name = nil;
++ (NSString*)name {
+   return _name;
+}
++ (void)setName:(NSString*)str {
+   _name = str;
+}
+@end
+~~~
+
+We need to explicitly create the _name backing storage for the property, then create the name and setName methods for reading and writing to that backing storage.
+
+## Creating Objects
+
+Object initialization is one area where Objective-C and Swift part ways quite dramatically:
+
+1. You don’t need to provide default values for any properties: Objective-C will set objects to nil and numbers to 0 by default.
+2. You always call the super class’s init method before initializing your own properties – the opposite of Swift.
+3. You can call other methods in your initializer before you have finished initializing your own properties.
+4. All initializers are automatically failable; they can return nil. You need to check for this before continuing.
+5. You need to return self.
+
+Creating objects is the second place where accessing ivars directly is a good idea, with the other place being custom getters and setters. The reason for this is because when accessing properties it’s possible for unintended side effects to occur that might leave your app in a fragile or outright broken state., usually as a result of KVO.
+
+Consider a Person class with name and age properties. There’s another class, Office, which tracks Person objects. We might configure the Office object to observe the age property of each of its staff, so that everyone gets a cake on their birthday. 
+
+If the Person initializer set the age before the birthday, it’s possible the Office object might try to read the name property and find that it’s not set yet.
+
+The syntax for initializers in Objective-C is a little strange at first, putting it mildly. It starts by calling [**super init**], assigning the result to **self**, then putting all that inside an **if** statement.
+
+What it means is “try to make me an instance of my super class, and if that succeeds then I’ll initialize my own properties.”
+
+If the call to [**super init**] fails, then **self = nil** will return false, and no further work is done.
+
+If you have a chain of inheritance, using [**super init**] may in turn call another parent class, which might call another parent class, and so on. Each child class then adds its own little bit of initialization into the mix, before finally you add your own.
+
+>Note: You can write as many **init**... methods as you want, but you never write a custom **alloc** method. This is handled for you by **NSObject**.
+
+## Categories and Class Extensions
+
+Objective-C’s categories are analogous to Swift’s extensions, but there are subtle variations you need to be aware of, the fact that Objective-C’s categories only operate on classes.
+
+An Objective-C category is a named set of extensions for any class. The names don’t do anything useful, which is probably why they were removed in Swift, but it does at least help you organize your categories.
+
+It’s common to use a category’s name in its filename like this: **ClassName+CategoryName**. For example, if you add a category to **UIColor** that generates random shades of your favorite color, you might call the category **UIColor(RandomShades)** and name the files **UIColor+RandomShades.h** and **UIColor+RandomShades.m**.
+
+Apple uses categories extensively to help segregate macOS and iOS functionality.
+
+For example, both platforms use **NSString** for their strings, but one has a **NSString(NSStringDrawing)** category that adds macOS-specific drawing code, and the other has a **NSString(UIStringDrawing)** category that adds iOS-specific code.
+
+Because categories can work on any class – including Apple’s own classes – you need to be extra careful when naming any methods you add.
+
+For example, if you add a trim method to NSString, what happens if a new version of iOS comes out that has a built-in trim method? “Bad things”, that’s what. Instead, **you should prefix your methods with the initials of your name or company**, for example, ts_trim would work fine if you were Taylor Swift.
+
+**Class Extensions vs Categories**
+
+Categories can add new methods to any class, even ones you didn’t write. In fact, this is their most common purpose: add some functionality to built-in classes like **UILabel**, **NSArray**, and **SKProduct** to make common tasks easier.
+
+Class extensions are a specialized variety of categories, and in fact look just like anonymous categories because they don’t have a name. They aren’t quite as flexible because they don’t allow you to work on classes that aren’t part of your source code, which means you can’t extend **NSString** or any other Apple class.
+
+However, within that limitation they are substantially more powerful because they let you add properties and ivars to a class, as well as methods. This is possible because the class extension is compiled into the original class’s source code at build time, rather than bolted on separately as with a regular category. This makes them work like partial classes in C#.
+
+The most common way this class extension technique is used is with **readonly** properties.
+
+When you create a read-only property, the compiler won’t synthesize a setter and so you can read from a property without being able to change it. That works well for API you expose, but often you want to be able to **read** and **write** the property inside the class, which is where class extensions come in: declare the property as **readonly** in the header and then redeclare it as **readwrite** in the implementation.
+
+>Note: **readwrite** is actually the default, so any redefinition will automatically make the property **readwrite**.
+
+## Protocols
+
+Protocols in Objective-C are almost identical to Swift, particularly when you use the @objc attribute in Swift.
+
+Unsurprisingly, adding that attribute in Swift effectively brings it up to par with Objective-C: you can have required methods as well as optional requirements, both of which are available out of the box in Objective-C.
+
+To mark a class as conforming to a protocol, you need to add a comma-separated list of protocols in angle brackets after your class name.
+
+For example, our basic **Person** class looks like this:
+
+~~~
+@interface Person : NSObject
+~~~
+
+If we wanted to mark it as conforming to some protocols, we would write this:
+
+~~~
+@interface Person : NSObject <NSCopying, NSCoding>
+~~~
+
+You can then query the object at runtime, like this:
+
+~~~
+if ([myPerson class] conformsToProtocol:@protocol(MyProtocol)]) { }
+~~~
+
+Or you can query a whole class like this:
+
+~~~
+[MyClass conformsToProtocol:@protocol(MyProtocol)];
+~~~
+
+## Nullability
+
+Objective-C has always been fairly free and easy with its usage of nil values, but the introduction of nullability syntax allows you to explicitly mark which things may or may not be nil.
+
+That might sound close to Swift’s optionals, and with good reason: using Objective-C’s nullable syntax makes optionality much more pleasant for Swift users, while also potentially catching some Objective-C bugs too.
+
+Nullability affects the language much more extensively than generic collections, which inevitably means take-up is slower. 
+
+To use it properly, you need to audit each one of your files and make sure you attach nullability constraints to each of your properties and methods. You can also make a blanket promise, “assume everything isn’t null,” but that’s potentially risky unless you still go through and audit your code.
+
+Nullability in Objective-C is similar to generics, in that both are lightweight features designed to make the transition from Objective-C to Swift smoother. They are both limited in what they offer, and in the case of nullability the protection it offers is not even in the same league as Swift’s optionals.
+
+**Nullable Properties and Methods**
+
+There are several different ways of adding nullability annotations to properties and methods depending on what you’re trying to do, but in practice you will nearly always use just two keywords: **nullable** and **nonnull**.
+
+As soon as you add one of these to any of your properties or methods in your header file, Xcode will ask that you mark everything, so be prepared to do quite a bit of work.
+
+You can generated Swift code from Objective-C with Xcode Assistant Editor, from menu Editor - Assistant -> in counterpart tab choose Swift.
+
+As soon as you mark one thing with nullability annotations you need to mark everything with one.
+
+**Audited Regions**
+
+Xcode has a special macro that effectively flips around nullability auditing: rather than opting in to nullability, you tell Xcode to assume that everything is non-null, then opt out of the parts that might be null.
+
+This is accomplished using the **NS_ASSUME_NONNULL_BEGIN** and **NS_ASSUME_NONNULL_END** macros, which should always be used in pairs.
+
+You can have more than one pair if you need to mark multiple individual blocks, but it’s more common to place **NS_ASSUME_NONNULL_BEGIN** at the start and **NS_ASSUME_NONNULL_END** at the end so that everything is implicitly considered **nonnull**.
+
+If you’re using these macros, then you no longer need all the nonnull keywords everywhere – that becomes the default.
+
+~~~
+NS_ASSUME_NONNULL_BEGIN
+
+@interface Person : NSObject
+
+@property NSString *name;
+- (instancetype)initWithName:(NSString*)name;
+- (NSString*)fetchGreetingForTime:(NSString*)time;
+
+@end
+
+NS_ASSUME_NONNULL_END
+~~~
+
+I think you’ll agree it looks much cleaner, and it also means that any nullability annotations that remain are more likely to catch your eye while reading.
+
+For example, we might decide that our initializer might return nil sometimes, so we’d just modify that one line to be **nullable**, like this:
+
+~~~
+- (nullable instancetype)initWithName:(NSString*)name;
+~~~
+
+**Where things fall down**
+
+Now that we have nullability annotations in place and our generated Swift interface looks good. Let’s take a look at how Xcode uses this information to provide protection against accidental mistakes.
+
+Try modifying the fetchGreetingForTime method to this:
+
+~~~
+- (NSString*)fetchGreetingForTime:(NSString*)time {
+   self.name = nil;
+   return [NSString stringWithFormat:@"Good %@, %@!", time,
+self.name];
+}
+~~~
+
+Clearly that’s the kind of mistake you won’t make in real life, but that’s not the point: this is simulating us making a mistake by putting nil into a nonnull property.
+
+As you enabled “Treat warnings as errors”, Xcode should refuse to compile, saying “Null passed to a callee that requires a non-null argument.” This is an immediate win for nullability, because it’s refusing to let us call the **setName** method with a nil value. 
+
+Because Apple has audited all their own APIs, this means things like sending nil to **addObject** on an **NSArray** will also refuse to build, which will definitely help to eliminate some bugs.
+
+Now try modifying fetchGreetingAtTime to this:
+
+~~~
+- (NSString*)fetchGreetingForTime:(NSString*)time {
+   NSString *str = nil;
+   self.name = str;
+   return [NSString stringWithFormat:@"Good %@, %@!", time, self.name];
+}
+~~~
+
+That assigns nil to a temporary string, and puts that string into the property, and this time it compiles cleanly because the compiler isn’t able to trace the nil value from one line to the next.
+
+This is where a separate tool steps in: the static analyzer. This goes over your code in more detail than the compiler, looking for logic errors, API errors, and memory management problems. It literally follows the flow of your code, and in this case it will be able to follow **nil** being assigned to **str**, then **str** being assigned to **self.name**.
+
+Go to the Product menu and choose Analyze. You’ll see a new blue warning appear, which is the color used to highlight static analyzer warnings. It ought to say, “Null passed to a callee that requires a non-null 1st parameter,” which is exactly what’s happening.
+
+The static analyzer will also catch you trying to return nil from the method if you try it, which again the regular compiler would not. Even better, it will even stop you from trying to bypass the property by assigning nil directly to an nonnull **ivar** – it really is very clever, and gets better with every release.
+
+Nullability is a guarantee for your interfaces, but it’s less useful for internal code unless you compulsively run the static analyzer.
+
+This means you need to go through your methods closely to ensure that you keep the nullability promises you make, so that Swift users who rely on your interface get what they expect.
+
+**The null_resettable Annotation**
+
+There’s another nullable annotation that you might come across called **null_resettable**.
+
+Some properties have a meaningful default value that can be restored by setting the property to **nil**.
+
+The best example of this is the **tintColor** for controls in iOS: you can set it to red to make a button have a red tint, then you can set it to nil. But when you set it to nil, it doesn’t mean “no tint color.” Instead, it sets it back to the default value: iOS’s standard sky blue shade.
+
+This means reading from **tintColor** will always return a value, but you can write a **nullable** value to it.
+
+In Objective-C, this is accomplished by the **null_resettable** annotation.
+
+When you apply it to a property – which is the only place it can be applied – it does two things. First, it makes the property an implicitly unwrapped optional in your Swift interface, because the property ought never to be nil when read. Second, it breaks compilation, because Xcode doesn’t know what default value to assign.
+
+To use this type annotation you need to create custom accessor methods for your type. The setter can work as normal, but the getter needs to ensure a default value is provided if the current **ivar** is **nil**.
+
+~~~
+- (NSString *)name {
+   if (_name == nil) {
+      return @"Anonymous";
+   } else {
+      return _name;
+   } 
+}
+~~~
+
+**Transitioning to Nullability**
+
+If you work on a project that is part way through migrating to nullability, there’s one further annotation you might find: **null_unspecified**.
+
+This means “we haven’t audited this yet”, and returns the code to using implicitly unwrapped optionals. This is a helpful annotation when you want to opt in to nullability, but you’re not sure what a particular property or method should use.
+
+This might be because it’s complicated, or because you haven’t gotten around to it yet, but either the way this annotation is definitely temporary: you should move away from it once your audit is complete.
+
+Ultimately, your goal is to be able to use **NS_ASSUME_NONNULL_BEGIN** and **NS_ASSUME_NONNULL_END** for all your interfaces, meaning that you have audited all your methods and properties to ensure they are safe.
+
+You benefit from some compiler protection and some static analyzer protection too, but you’ll also make life easier when working with Swift code now and in the future.
