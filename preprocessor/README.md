@@ -181,3 +181,128 @@ There are five more predefined macros you’re likely to meet:
 * **__LINE__**: Inserts the current line number.
 
 When combined, these provide a simple way to inject information into your app for debugging purposes.
+
+### Mimicking Swift
+
+Here are two macros you might want to consider adding to your Objective-C projects:
+
+~~~
+#define let __auto_type const
+#define var __auto_type
+~~~
+
+They define two new keywords, **let** and **var**, that work very similarly to Swift’s – they create constants and variables, and they use type inference to figure out the type of your objects. This makes your Objective-C code significantly more Swifty!
+
+## Metadata Macros
+
+There are three compiler directives that you might find useful outside of the usual flow of building code.
+
+They are **#warning**, **#error**, and **#pragma**, although if you’ve enabled **“Treat warnings as errors”** then this is the one time it’s actually unhelpful.
+
+Both **#warning** and **#error** work identically to their counterparts in Swift, but **#pragma** has no Swift counterpart.
+
+The **#warning** directive automatically emits a compiler warning of your choosing.
+
+~~~
+#warning We should probably fix this.
+~~~
+
+When the code gets built, there will now be a warning on this line saying “We should probably fix this.”
+
+This allows you to mark code as needing further work without needing an external bug tracker – everyone will see this warning until it’s finally removed. Sadly, this becomes useless when **“Treat warnings as errors”** is enabled, because what was a small notice in your code now stops everything from building.
+
+If you really do want your code to stop building, regardless of **“Treat warnings as errors”**, you can use **#error** to always generate a compiler error.
+
+~~~
+#error You need to change the value below then remove this line.
+~~~
+
+Seeing a line of code like that is common if you’re using someone else’s code, because it stops people trying to run some code without filling in required values.
+
+Finally, there’s **#pragma**, which has two main purposes: placing markers in your code and adjusting compiler settings mid-flight.
+
+~~~
+#pragma mark - UITableView delegate
+~~~
+
+That “UITableView delegate” text now appears in the Xcode jump bar in bold, allowing you to group methods together more easily in a long file.
+
+The second use of **#pragma** is to adjust your build settings for part of a file. 
+
+This is most commonly used when someone has written some “clever” code that Xcode does not think is quite so clever, so it’s issuing warnings.
+
+For example, if you’re performing a selector that Xcode isn’t sure about, you’ll get a warning that it might leak. In this case, you might see **#pragma** used to block that warning.
+
+~~~
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Warc-performSelector-leaks"
+// CODE THAT NORMALLY GENERATES WARNINGS HERE
+#pragma clang diagnostic pop
+~~~
+
+Using this approach hides that particular warning for a small block of code.
+
+## Defining Function-like Macros
+
+Function-like macros are where macros either show their true power, or show their true potential for mayhem depending on your point of view.
+
+They are built in the same way as object-like macros, but you can give them a parameter list and use those parameters in the expanded code.
+
+>NOTE: When you write a function-like macro you must put your opening parenthesis immediately after the name of the macro, with no space.
+
+~~~
+#define MINVAL(x, y) x < y ? x : y
+~~~
+
+That creates a new function-like macro that accepts two parameters. You can refer to these parameters inside the macro function, so that one returns the least of two numbers. It’s used like this:
+
+~~~
+NSInteger minimum = MINVAL(1, 2);
+NSLog(@"The lower number is %ld", (long)minimum);
+~~~
+
+When the preprocessor runs, that code gets expanded into this:
+
+~~~
+NSInteger minimum = 1 < 2 ? 1 : 2
+NSLog(@"The lower number is %ld", (long)minimum);
+~~~
+
+Now, that code has a problem: if you use it in a non-trivial statement it won’t work as expected. For example, this will set minimum to be 1:
+
+~~~
+NSInteger minimum = 1 + MINVAL(1, 5);
+~~~
+
+That expands into the following:
+
+~~~
+NSInteger minimum = 1 + 1 < 5 ? 1 : 5
+~~~
+
+Fortunately, you’re not stuck with **MINVAL()**: Objective-C has its own **MIN()** macro built in that is far more robust.
+
+Here’s Apple’s version of function-like macros:
+
+~~~
+#define __NSX_PASTE__(A,B) A##B
+#if !defined(MIN)
+#define __NSMIN_IMPL__(A,B,L) ({ 
+    __typeof__(A) __NSX_PASTE__(__a,L) = (A); 
+    __typeof__(B) __NSX_PASTE__(__b,L) = (B); 
+    (__NSX_PASTE__(__a,L) < __NSX_PASTE__(__b,L)) ? __NSX_PASTE__(__a,L) : __NSX_PASTE__(__b,L); 
+})
+#define MIN(A,B) __NSMIN_IMPL__(A,B,__COUNTER__)
+#endif
+~~~
+
+The advantage to function-like macros is that their code becomes inlined into your own, which means there’s no performance hit for making a function call. To be honest, function calls are so fast you’d either have to be making an intensive game or working on a media-editing app to find that they are a problem, so please don’t try to “optimize” your code until you’re sure where the bottleneck is.
+
+Two common function-like macros you may come across are **DEG2RAD()** and **RAD2DEG()**, which inline the math for converting degrees to radians and back:
+
+~~~
+#define DEG2RAD(x) ((x) * M_PI / 180.0f)
+#define RAD2DEG(x) ((x) * 180.0f / M_PI)
+~~~
+
+Notice how **x** is placed in parentheses? That’s to stop it interfering with the rest of the code when it’s expanded, for example if someone use **DEG2RAD(5 + 5)**.
