@@ -30,6 +30,7 @@
         
         for (NSString *line in contentLines) {
             FHQuote *quote = [[FHQuote alloc] initWithLine:line];
+            NSLog(quote.quoteMock);
             
             if (quote != nil) {
                 [self.quotes addObject:quote];

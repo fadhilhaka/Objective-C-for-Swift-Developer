@@ -7,6 +7,8 @@
 
 #import "SCApp.h"
 
+
+
 @implementation SCApp
 
 - (void)fetchCommitsFromRepo:(NSString*)repo {

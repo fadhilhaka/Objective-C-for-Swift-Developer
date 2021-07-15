@@ -11,6 +11,8 @@
 
 - (instancetype)initWithLine:(NSString*)line {
     if (self == super.init) {
+        self.quoteMock = @"Mock Quote";
+        
         NSArray *split = [line componentsSeparatedByString:@"/"];
         
         if ([split count] != 2) {

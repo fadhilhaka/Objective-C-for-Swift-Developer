@@ -11,6 +11,7 @@ NS_ASSUME_NONNULL_BEGIN
 
 @interface FHQuote : NSObject
 
+@property (strong, nonatomic, nullable) NSString *quoteMock;
 @property NSString *quote;
 @property NSString *person;
 
