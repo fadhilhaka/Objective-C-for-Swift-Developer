@@ -45,3 +45,23 @@ Worse, the **retain** part of a property only happened if you used the property.
 If you did this, you would end up releasing an object too soon, and sending messages to who knows what in the future.
 
 >NOTE: Zombie is the actual name for this – there’s still a checkbox in Xcode for “Enable Zombie Objects”.
+
+### How ARC Works
+
+ARC works by automatically adding calls to retain, release, and autorelease during compilation.
+
+Swift also uses ARC, although it’s less obvious because the distinction between **initWith...** and **arrayWith...** is gone. However, one area where the two languages are similar is our old friend the strong reference cycle: ARC is unable to resolve **strong** reference cycles automatically, so you need to use **weak** references to break them.
+
+Both Objective-C and Swift use **strong** by default for all objects, but both also allow you to use the **weak** keyword for properties that should not add to the reference count of the value being stored. This has identical meaning: if the value is not stored somewhere else, it will be destroyed.
+
+~~~
+@property (weak) SomeDataType *delegate;
+~~~
+
+Prior to ARC, Objective-C developers used the **assign** property attribute for both primitive types and weakly held objects, but there’s a subtle difference between **assign** and **weak**: when a **weak property** is finally destroyed the variable gets set to **nil**, but when an **assign property** is destroyed it does not.
+
+This creates a dangling pointer: the property points to some place in RAM where the object used to be, but that could now be something else entirely.
+
+Remember, sending a message to nil is OK in Objective-C, but sending a message to an unknown chunk of memory is manifestly a Really Bad Move.
+
+You should also use **weak** to break strong reference cycles in blocks, although the syntax used to declare weak variables is **__weak**.
