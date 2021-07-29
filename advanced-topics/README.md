@@ -65,3 +65,91 @@ This creates a dangling pointer: the property points to some place in RAM where 
 Remember, sending a message to nil is OK in Objective-C, but sending a message to an unknown chunk of memory is manifestly a Really Bad Move.
 
 You should also use **weak** to break strong reference cycles in blocks, although the syntax used to declare weak variables is **__weak**.
+
+### Side Effects of ARC
+
+ARC operates at such a fundamental level in Objective-C that it’s easy to create compile errors if you use it wrongly, or inefficient code even if you think you’re using it correctly.
+
+To give you an example, imagine you wanted to create a class to help people move house. This class has two properties, an old address and a new address.
+
+~~~
+@property NSString *oldAddress;
+@property NSString *newAddress;
+~~~
+
+Sadly, that won’t compile. Remember, properties get synthesized into accessor methods, so those two properties will generate the four methods **oldAddress**, **setOldAddress**, **newAddress**, and **setNewAddress**.
+
+Those four are what ARC sees, and remember: ARC is built upon Apple’s strict naming conventions. So, when it sees a method named **newAddress**, it expects that to create a new retained object, which it doesn’t. This is against the rules in ARC, hence the compile error.
+
+The solution is to specify a custom getter for the property to work around the naming rules.
+
+~~~
+@property (getter=getNewAddress) NSString *newAddress;
+~~~
+
+Learning to think like ARC – bizarre as that might sound – is the key to writing efficient code. You see, the compiler has to figure out where to insert **retain**, **release**, and **autorelease** calls, and it plays it safe because if it over-retains or over-releases then ARC causes serious problems.
+
+The best example of this is with **NSError**.
+
+~~~
+NSError *error;
+NSString *str = [NSString stringWithContentsOfFile:@"somefile.txt" usedEncoding:nil error:&error];
+~~~
+
+That code is very common, and I normally encourage people to write it that way when they are learning Objective-C because it’s easier to understand. But once you advance a bit further, you might spot that it contains an inconsistency: ARC uses **strong** for objects by default, whereas the **stringWithContentsOfFile** method wants an **autoreleasing NSError** – a subtly different error type.
+
+Rather than force you to fix these problems, ARC picks up the slack on your behalf. First, it explicitly makes the error strong, like this:
+
+~~~
+NSError * __strong error;
+~~~
+
+Then it introduces a new temporary NSError object that is autoreleasing, and copies in whatever value error already has:
+
+~~~
+NSError * __autoreleasing temp = error;
+~~~
+
+This temp error is the correct data type for stringWithContentsOfFile, so it will be called next:
+
+~~~
+NSString *str = [NSString stringWithContentsOfFile:@"somefile.txt" usedEncoding:nil error:&temp];
+~~~
+
+Finally, it will assign temp back to error so that the rest of our code carries on working as before:
+
+~~~
+error = temp;
+~~~
+
+If you want to avoid this extra work being done, the correct approach is to declare your errors using **__autoreleasing**, like this:
+
+~~~
+NSError * __autoreleasing error;
+~~~
+
+One other side effect of using ARC is that some third-party libraries have not been updated to use it. As each year goes by this list shrinks and shrinks, but if you join an Objective-C project that is clinging onto libCrustyButEssential for dear life, expect to see the compiler flag **-fno-objc-arc** used for some files under the **Build Phases** tab.
+
+**Technically Correct Way to Write**
+
+You will often see people use ARC qualifiers before the class name, like this:
+
+~~~
+__weak NSString *name = @"Bilbo Baggins";
+~~~
+
+In our code so far, we’ve been using “**ClassName * Qualifier Identifier**”, like this:
+
+~~~
+NSString * __weak name = @"Bilbo Baggins";
+~~~
+
+Both do the same thing, but only the latter is officially considered the right way. As Apple puts it, “other variants are technically incorrect but are forgiven by the compiler.”
+
+This starts to matter when you see more complicated usages like this:
+
+~~~
+NSError * _Nullable __autoreleasing * _Nullable
+~~~
+
+The pointer can be nil, the pointer pointer can be nil, and there’s some autoreleasing thrown in for good luck. That’s actually the formal definition of the NSError parameter to stringWithContentsOfFile, so it’s not exactly unusual code!
