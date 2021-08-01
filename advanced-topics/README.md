@@ -153,3 +153,25 @@ NSError * _Nullable __autoreleasing * _Nullable
 ~~~
 
 The pointer can be nil, the pointer pointer can be nil, and there’s some autoreleasing thrown in for good luck. That’s actually the formal definition of the NSError parameter to stringWithContentsOfFile, so it’s not exactly unusual code!
+
+### Dealing with Core Foundation
+
+One area where Swift’s ARC implementation is significantly better than Objective-C’s is when you have to handle Core Foundation objects. ARC is smart enough to know that Core Foundation types that follow the naming conventions are unowned, but it will still force you to cast them to **id** like this:
+
+~~~
+NSArray *colors = [NSArray arrayWithObject:(id)[[UIColor whiteColor] CGColor]];
+~~~
+
+When it comes to more complex Core Foundation usage, you need to manage them yourself. **ARC will not automatically free Core Foundation objects you create**.
+
+You need to use **CFRelease()** or the domain-specific release function that matches how you created the object.
+
+For example, creating and destroying a **CGPDFDocumentRef** looks like this:
+
+~~~
+CGPDFDocumentRef documentRef = CreatePDFDocumentRef(pdfURL);
+CGPDFDocumentRelease(documentRef);
+~~~
+
+[Transitioning to ARC Release Notes](https://developer.apple.com/library/mac/releasenotes/ObjectiveC/RN- TransitioningToARC/Introduction/Introduction.html)
+
