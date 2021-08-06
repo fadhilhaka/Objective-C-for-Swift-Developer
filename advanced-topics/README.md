@@ -175,3 +175,37 @@ CGPDFDocumentRelease(documentRef);
 
 [Transitioning to ARC Release Notes](https://developer.apple.com/library/mac/releasenotes/ObjectiveC/RN- TransitioningToARC/Introduction/Introduction.html)
 
+## Autorelease Pools
+
+When you create objects that aren’t retained, they will be autoreleased by ARC at some later date. That “later date” is usually the end of the current run loop, which means “when all your code has finished executing, and a new set of events come in.”
+
+Sometimes this can cause problems: if you create an array of objects, or create objects that use lots of RAM, you might want to be sure they are definitely destroyed now rather than waiting until all code has finished.
+
+~~~
+for (NSInteger i = 0; i < 100; ++i) {
+   ComplexObject *obj = [ComplexObject new];
+   [obj doLotsOfWork];
+}
+~~~
+
+It doesn’t matter what **ComplexObject** is or what **doLotsOfWork** entails, other than it being a placeholder for “lots of objects are being created here.”
+
+We don’t know when those objects will be destroyed. ARC might destroy some or all of them immediately using **release**, or it might queue some or all of them up for destruction using **autorelease** – that’s an implementation detail we don’t have much control over.
+
+However, if **autorelease** is used, then that loop will run 100 times before the autoreleased objects are released. That could mean your app chewing up huge amounts of RAM, most of which is objects awaiting deallocation.
+
+The solution to this is to use **@autoreleasepool** blocks. We already have one of these in main.m, but you can create them wherever you need. Any code you place inside an **@autoreleasepool** block will automatically have its autoreleased objects destroyed when the block ends.
+
+~~~
+for (NSInteger i = 0; i < 100; ++i) {
+   @autoreleasepool {
+      ComplexObject *obj = [ComplexObject new];
+      [obj doLotsOfWork];
+   }
+}
+~~~
+
+That allocates and destroys the same amount of memory, but now the high water mark – the total amount of memory in use at any one time – is significantly lower, because we free autoreleased objects each time the loop goes around.
+
+>NOTE: Some methods have their own autorelease pools for exactly this situation. For example, the **enumerateObjectsUsingBlock** on **NSArray** and **enumerateSubstringsInRange** on **NSString** both wrap their blocks inside **@autoreleasepool** to ensure the high water mark stays low.
+
