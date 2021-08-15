@@ -209,3 +209,32 @@ That allocates and destroys the same amount of memory, but now the high water ma
 
 >NOTE: Some methods have their own autorelease pools for exactly this situation. For example, the **enumerateObjectsUsingBlock** on **NSArray** and **enumerateSubstringsInRange** on **NSString** both wrap their blocks inside **@autoreleasepool** to ensure the high water mark stays low.
 
+## Objective-C++
+
+Objective-C is a strict superset of C, which means that any valid C code is valid Objective-C. You can, if you wish, write any of your files using Objective-C++, which is where any valid C++ code is valid Objective-C.
+
+C++'s creator, Bjarne Stroustrup, once said that “C makes it easy to shoot yourself in the foot; C++ makes it harder, but when you do, it blows away your whole leg.”
+
+There are some good reasons to switch to Objective-C++. The STL includes real generics like vector and map rather than the Swift-focused generics found in Objective-C. 
+
+It also introduces features we’re used to in Swift, such as operator overloading and type inference, which means that code like this compiles just fine:
+
+~~~
+auto myString = @"Hello, world!";
+~~~
+
+There are some downsides to Objective-C++, some technical and some mental.
+
+First, the Objective-C++ compiler is noticeably slower than the Objective-C compiler, so if you have a large project then you need to think twice before moving to Objective-C++. 
+
+This is mitigated by the fact that you opt in to Objective-C++ on a per-file basis, so you can enable it for only one file if you wish.
+
+You might also find that you suddenly get some compiler warnings you didn’t have previously, even before you write any C++ code. This is because C++ compilers are stricter than C compilers, but that’s OK – fix any problems that come up and you’ll be doing your code a favor even if you ultimately switch away from Objective-C++
+
+There are a couple of mental downsides, largely caused by the fact that Objective-C and C++ are two very different languages.
+
+Pushing them together in one file can really hurt your head: you can’t mix Objective-C and C++ classes when you want inheritance, and you can’t call a C++ object using Objective-C syntax or vice versa, so it’s down to you to make sure the two live in a together-but-separately manner.
+
+>NOTE: Facebook’s Pop animation library is written in Objective-C++, as is WKWebView – largely thanks to WebKit being a C++ project.
+
+To enable Objective-C++ support for a file, all you need to do is rename the file extension. It’s .m by default, but if you change it to .mm then you just enabled Objective-C++
